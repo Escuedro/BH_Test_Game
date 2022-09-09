@@ -58,7 +58,7 @@ namespace Game.View.UI
 		}
 
 		[Command]
-		private void SetDisplayName(string displayName)
+		public void SetDisplayName(string displayName)
 		{
 			DisplayName = displayName;
 		}
@@ -79,6 +79,7 @@ namespace Game.View.UI
 		private void Start()
 		{
 			_readyButton.onClick.AddListener(() => UpdateIsReady(!IsReady));
+			_startGameButton.onClick.AddListener(StartGame);
 		}
 
 		private void OnDisplayNameChanged(string oldName, string newName)
@@ -137,6 +138,16 @@ namespace Game.View.UI
 			IsReady = isReady;
 
 			Room.UpdateReadyToStartState();
+		}
+
+		[Command]
+		private void StartGame()
+		{
+			if (Room.RoomPlayers[0].connectionToClient != connectionToClient)
+			{
+				return;
+			}
+			Room.StartGame();
 		}
 	}
 }

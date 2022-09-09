@@ -3320,10 +3320,18 @@ MonoBehaviour:
   playerSpawnMethod: 0
   spawnPrefabs:
   - {fileID: 5545711095066529536, guid: 931d61414520bed47a5aa2448bf6c07f, type: 3}
-  _minPlayers: 2
+  - {fileID: 4641634135135899924, guid: 15165c40811a6cc4982114049cc79029, type: 3}
+  - {fileID: 2019476367586159737, guid: 20e610d9277de424eb07ba67bf31a815, type: 3}
+  - {fileID: 6661635323765775817, guid: 44248a034cea93e429ce15feb965aca6, type: 3}
+  _pointsNeededToWin: 3
+  _winStateDuration: 5
+  _minPlayers: 1
   _menuSceneName: Assets/Scenes/RoomScene.unity
+  _gameSceneName: Assets/Scenes/GameScene.unity
   _playerRoomPrefab: {fileID: 7981375000373555297, guid: 931d61414520bed47a5aa2448bf6c07f, type: 3}
-  RoomPlayers: []
+  _gamePlayerPrefab: {fileID: 6807116845251062865, guid: 44248a034cea93e429ce15feb965aca6, type: 3}
+  _playerSpawner: {fileID: 4660711014477860524, guid: 20e610d9277de424eb07ba67bf31a815, type: 3}
+  _updateTimerPrefab: {fileID: 8586330033795181917, guid: ee3d5fb3451ff7d488c18d31c43f8bed, type: 3}
 --- !u!4 &2141856303
 Transform:
   m_ObjectHideFlags: 0

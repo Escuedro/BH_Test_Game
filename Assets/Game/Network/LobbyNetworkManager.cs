@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using Game.Utils;
 using Game.View.UI;
 using Mirror;
 using UnityEngine;
@@ -9,13 +11,66 @@ namespace Game.Network
 	public class LobbyNetworkManager : NetworkManager
 	{
 		[SerializeField]
+		private int _pointsNeededToWin = 3;
+		[SerializeField]
+		private float _winStateDuration = 5f;
+		[SerializeField]
 		private int _minPlayers = 2;
 		[SerializeField, Scene]
 		private string _menuSceneName;
+		[SerializeField, Scene]
+		private string _gameSceneName;
 		[SerializeField]
 		private PlayerRoomView _playerRoomPrefab;
+		[SerializeField]
+		private PlayerGameEntity _gamePlayerPrefab;
+		[SerializeField]
+		private PlayerSpawner _playerSpawner;
+		[SerializeField]
+		private UpdateTimer _updateTimerPrefab;
 
-		public List<PlayerRoomView> RoomPlayers = new List<PlayerRoomView>();
+		public List<PlayerRoomView> RoomPlayers { get; } = new List<PlayerRoomView>();
+		public List<PlayerGameEntity> GamePlayers { get; } = new List<PlayerGameEntity>();
+
+		public static Action<NetworkConnection> OnServerReadied;
+
+		private float _winStateTimer;
+
+		public override void Start()
+		{
+			base.Start();
+			NetworkServer.RegisterHandler<IncreasePointMessage>(OnPointIncreased);
+		}
+
+		private void OnPointIncreased(NetworkConnectionToClient connection, IncreasePointMessage points)
+		{
+			PlayerGameEntity playerGameEntity = connection.identity.GetComponent<PlayerGameEntity>();
+			playerGameEntity.Points++;
+			if (playerGameEntity.Points >= _pointsNeededToWin)
+			{
+				WinGame(connection);
+			}
+		}
+
+		private void WinGame(NetworkConnectionToClient winnerConnection)
+		{
+			PlayerGameEntity playerGameEntity = winnerConnection.identity.GetComponent<PlayerGameEntity>();
+			UpdateTimer updateTimer = Instantiate(_updateTimerPrefab);
+			updateTimer.Init(() =>
+			{
+				ResetAllPoints();
+				_playerSpawner.RespawnAndResetAllPlayers();
+			}, _winStateDuration);
+			NetworkServer.SendToAll(new GameWinMessage() {WinnerName = playerGameEntity.DisplayName});
+		}
+
+		private void ResetAllPoints()
+		{
+			foreach (PlayerGameEntity playerGameEntity in GamePlayers)
+			{
+				playerGameEntity.Points = 0;
+			}
+		}
 
 		public override void OnServerConnect(NetworkConnectionToClient conn)
 		{
@@ -52,6 +107,8 @@ namespace Game.Network
 
 		private bool IsMenuScene => SceneManager.GetActiveScene().path == _menuSceneName;
 
+		private bool IsGameScene => SceneManager.GetActiveScene().path == _gameSceneName;
+
 		public override void OnServerDisconnect(NetworkConnectionToClient conn)
 		{
 			if (conn.identity != null)
@@ -61,7 +118,7 @@ namespace Game.Network
 
 				UpdateReadyToStartState();
 			}
-			
+
 			base.OnServerDisconnect(conn);
 		}
 
@@ -89,6 +146,60 @@ namespace Game.Network
 			}
 
 			return true;
+		}
+
+		public void StartGame()
+		{
+			if (IsMenuScene)
+			{
+				if (!IsReadyToStart())
+				{
+					return;
+				}
+
+				ServerChangeScene(_gameSceneName);
+			}
+		}
+
+		public override void ServerChangeScene(string newSceneName)
+		{
+			if (IsMenuScene)
+			{
+				for (int i = RoomPlayers.Count - 1; i >= 0; i--)
+				{
+					PlayerRoomView playerRoomView = RoomPlayers[i];
+					NetworkConnectionToClient connectionToClient = playerRoomView.connectionToClient;
+					PlayerGameEntity gamePlayerInstance = Instantiate(_gamePlayerPrefab);
+					gamePlayerInstance.SetDisplayName(playerRoomView.DisplayName);
+
+					NetworkServer.Destroy(connectionToClient.identity.gameObject);
+
+					NetworkServer.ReplacePlayerForConnection(connectionToClient, gamePlayerInstance.gameObject);
+				}
+			}
+
+			base.ServerChangeScene(newSceneName);
+		}
+
+		public override void OnServerSceneChanged(string sceneName)
+		{
+			if (IsGameScene)
+			{
+				GameObject playerSpawner = Instantiate(_playerSpawner.gameObject);
+				NetworkServer.Spawn(playerSpawner);
+
+				Cursor.lockState = CursorLockMode.Confined;
+			}
+		}
+
+		public override void OnServerReady(NetworkConnectionToClient conn)
+		{
+			base.OnServerReady(conn);
+
+			if (IsGameScene)
+			{
+				OnServerReadied?.Invoke(conn);
+			}
 		}
 	}
 }

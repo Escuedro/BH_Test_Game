@@ -39,6 +39,7 @@ namespace Game.View.UI
 			_lobbyNetworkManager.StartClient();
 
 			_enterIpPanel.gameObject.SetActive(false);
+			_hostOrJoinPanel.gameObject.SetActive(false);
 		}
 
 		private void OnJoinLobbyButtonClick()
@@ -49,6 +50,7 @@ namespace Game.View.UI
 		private void OnStartHostButtonClick()
 		{
 			_lobbyNetworkManager.StartHost();
+			_hostOrJoinPanel.gameObject.SetActive(false);
 		}
 	}
 }

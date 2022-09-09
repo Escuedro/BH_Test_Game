@@ -13,11 +13,9 @@ namespace Game.Network
 		[SerializeField, Scene]
 		private string _menuSceneName;
 		[SerializeField]
-		private RoomPlayerEntity _playerRoomPrefab;
-		[SerializeField]
-		private EnterNamePanel _enterNamePanel;
+		private PlayerRoomView _playerRoomPrefab;
 
-		private List<RoomPlayerEntity> _joinedPlayers = new List<RoomPlayerEntity>();
+		public List<PlayerRoomView> RoomPlayers = new List<PlayerRoomView>();
 
 		public override void OnServerConnect(NetworkConnectionToClient conn)
 		{
@@ -37,55 +35,52 @@ namespace Game.Network
 		{
 			if (IsMenuScene)
 			{
-				bool isRoomMaster = _joinedPlayers.Count == 0;
+				bool isRoomMaster = RoomPlayers.Count == 0;
 
-				RoomPlayerEntity roomPlayerEntity = Instantiate(_playerRoomPrefab);
-				roomPlayerEntity.Init(_enterNamePanel.PlayerName, (player) => _joinedPlayers.Add(player),
-						(player) => _joinedPlayers.Remove(player));
+				PlayerRoomView roomPlayerView = Instantiate(_playerRoomPrefab);
+				roomPlayerView.IsMaster = isRoomMaster;
 
-				roomPlayerEntity.SetIsMaster(isRoomMaster);
-
-				NetworkServer.AddPlayerForConnection(conn, roomPlayerEntity.gameObject);
+				NetworkServer.AddPlayerForConnection(conn, roomPlayerView.gameObject);
 			}
 		}
 
 		public override void OnStopServer()
 		{
 			base.OnStopServer();
-			_joinedPlayers.Clear();
+			RoomPlayers.Clear();
 		}
 
-		private bool IsMenuScene => SceneManager.GetActiveScene().name == _menuSceneName;
+		private bool IsMenuScene => SceneManager.GetActiveScene().path == _menuSceneName;
 
 		public override void OnServerDisconnect(NetworkConnectionToClient conn)
 		{
 			if (conn.identity != null)
 			{
-				RoomPlayerEntity player = conn.identity.GetComponent<RoomPlayerEntity>();
-				_joinedPlayers.Remove(player);
+				PlayerRoomView player = conn.identity.GetComponent<PlayerRoomView>();
+				RoomPlayers.Remove(player);
 
-				UpdateReadyState();
+				UpdateReadyToStartState();
 			}
 			
 			base.OnServerDisconnect(conn);
 		}
 
-		private void UpdateReadyState()
+		public void UpdateReadyToStartState()
 		{
-			foreach (RoomPlayerEntity roomPlayerEntity in _joinedPlayers)
+			foreach (PlayerRoomView roomPlayerEntity in RoomPlayers)
 			{
-				roomPlayerEntity.UpdateReadyState(IsReadyToStart());
+				roomPlayerEntity.UpdateReadyToStart(IsReadyToStart());
 			}
 		}
 
 		private bool IsReadyToStart()
 		{
-			if (_joinedPlayers.Count < _minPlayers)
+			if (RoomPlayers.Count < _minPlayers)
 			{
 				return false;
 			}
 
-			foreach (RoomPlayerEntity joinedPlayer in _joinedPlayers)
+			foreach (PlayerRoomView joinedPlayer in RoomPlayers)
 			{
 				if (!joinedPlayer.IsReady)
 				{

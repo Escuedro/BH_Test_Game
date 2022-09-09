@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 426689612260689256}
   - component: {fileID: 4410895753911456060}
-  - component: {fileID: 2532541998596225550}
   m_Layer: 0
   m_Name: LobbyNetworkEntity
   m_TagString: Untagged
@@ -47,19 +46,5 @@ MonoBehaviour:
   sceneId: 0
   serverOnly: 0
   visible: 0
-  m_AssetId: 
+  m_AssetId: 6126c15ccf2f79b438f22d1ce5149870
   hasSpawned: 0
---- !u!114 &2532541998596225550
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2576569032837835122}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f1837bf504f84bf792072d57fb9ae719, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  syncMode: 0
-  syncInterval: 0.1

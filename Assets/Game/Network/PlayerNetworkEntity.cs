@@ -1,4 +1,5 @@
 using System;
+using Game.Network.Messages;
 using Game.View;
 using Mirror;
 using TMPro;
@@ -36,17 +37,17 @@ namespace Game.Network
 		private Material _damagedMaterial;
 
 		[SyncVar(hook = nameof(OnDisplayNameChanged))]
-		private string _displayName;
+		public String DisplayName;
 
 		[SyncVar]
-		private bool _canMove = true;
+		public bool CanMove = true;
 
 		[SyncVar(hook = nameof(OnImmuneChanged))]
 		private bool IsImmune;
 		[SyncVar]
 		public bool InRush;
 		[SyncVar(hook = nameof(OnPointsChanged))]
-		private int Points;
+		public int Points;
 
 		private ThirdPersonCamera _camera;
 		private Vector3 _startRushPosition;
@@ -54,6 +55,8 @@ namespace Game.Network
 
 		private float _rushTimer;
 		private float _immuneTimer;
+
+		public Action<PlayerNetworkEntity> OnRushCollision;
 
 		private void Start()
 		{
@@ -67,6 +70,11 @@ namespace Game.Network
 			ThirdPersonCamera.ToFaceTransforms.Remove(_pointsText.transform);
 		}
 
+		public override void OnStartClient()
+		{
+			DontDestroyOnLoad(this);
+		}
+
 		public override void OnStartAuthority()
 		{
 			_camera = Instantiate(_cameraPrefab);
@@ -76,21 +84,13 @@ namespace Game.Network
 		[ServerCallback]
 		private void OnCollisionEnter(Collision collision)
 		{
-			if (collision.gameObject.TryGetComponent(out PlayerNetworkEntity player))
+			if (collision.gameObject.TryGetComponent(out PlayerNetworkEntity otherPlayer))
 			{
-				if (player.InRush && !IsImmune)
+				if (InRush && !otherPlayer.IsImmune)
 				{
-					Hit();
-					player.IncreasePoints();
+					OnRushCollision?.Invoke(otherPlayer);
 				}
 			}
-		}
-
-		[Server]
-		private void IncreasePoints()
-		{
-			Points++;
-			NetworkClient.Send(new IncreasePointMessage());
 		}
 
 		private void Update()
@@ -111,21 +111,21 @@ namespace Game.Network
 				{
 					CmdRushMovement(_camera.CameraForward);
 				}
-				if (IsImmune)
+				if (IsImmune && _immuneTimer > 0f)
 				{
-					CmdHandleImmune();
+					_immuneTimer -= Time.deltaTime;
+					if (_immuneTimer <= 0f)
+					{
+						CmdTurnOffImmunity();
+					}
 				}
 			}
 		}
 
 		[Command]
-		private void CmdHandleImmune()
+		private void CmdTurnOffImmunity()
 		{
-			_immuneTimer -= Time.deltaTime;
-			if (_immuneTimer <= 0f)
-			{
-				IsImmune = false;
-			}
+			IsImmune = false;
 		}
 
 		[Command]
@@ -134,7 +134,7 @@ namespace Game.Network
 			if (_rushTimer >= _maxRushDuration || Vector3.Distance(_startRushPosition, transform.position) >= _rushDistance)
 			{
 				InRush = false;
-				_canMove = true;
+				CanMove = true;
 				StopMovement();
 				_rigidbody.useGravity = true;
 				return;
@@ -159,11 +159,11 @@ namespace Game.Network
 		[Command]
 		private void CmdRush(Vector3 forwardVector)
 		{
-			if (!InRush && _canMove)
+			if (!InRush && CanMove)
 			{
 				_rigidbody.useGravity = false;
 				InRush = true;
-				_canMove = false;
+				CanMove = false;
 				forwardVector.y = 0;
 				_startRushPosition = transform.position;
 				_positionToRush = _startRushPosition + forwardVector * _rushDistance;
@@ -181,7 +181,7 @@ namespace Game.Network
 		[Command]
 		private void CmdMove(Vector2 inputDirection, Vector3 forwardVector, Vector3 rightVector)
 		{
-			if (_canMove)
+			if (CanMove)
 			{
 				Vector3 forwardRelativeMovement = inputDirection.y * forwardVector;
 				Vector3 rightRelativeMovement = inputDirection.x * rightVector;
@@ -204,14 +204,20 @@ namespace Game.Network
 
 		public void SetDisplayName(string displayName)
 		{
-			_displayName = displayName;
+			DisplayName = displayName;
 		}
 
 		[Server]
-		private void Hit()
+		public void Hit()
+		{
+			IsImmune = true;
+			RpcHit();
+		}
+
+		[ClientRpc]
+		private void RpcHit()
 		{
 			_immuneTimer = _immuneStateDuration;
-			IsImmune = true;
 		}
 
 		private void OnImmuneChanged(bool oldValue, bool newValue)

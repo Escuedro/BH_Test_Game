@@ -1,4 +1,6 @@
 ﻿using Game.Network;
+using Game.Network.Messages;
+using Mirror;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -50,6 +52,7 @@ namespace Game.View.UI
 		private void OnStartHostButtonClick()
 		{
 			_lobbyNetworkManager.StartHost();
+
 			_hostOrJoinPanel.gameObject.SetActive(false);
 		}
 	}

@@ -1,5 +1,6 @@
 ﻿using System;
 using Game.Network;
+using Game.Network.Messages;
 using Game.Utils;
 using Mirror;
 using TMPro;
@@ -58,7 +59,7 @@ namespace Game.View.UI
 		}
 
 		[Command]
-		public void SetDisplayName(string displayName)
+		private void SetDisplayName(string displayName)
 		{
 			DisplayName = displayName;
 		}

@@ -13,16 +13,9 @@ namespace Game.Network
 
 		private static List<Transform> _spawnPoints = new List<Transform>();
 
-		public override void OnStartServer()
-		{
-			LobbyNetworkManager.OnServerReadied += SpawnPlayer;
-		}
+		private List<Transform> _pointsAvailableToSpawn = new List<Transform>();
 
-		[ServerCallback]
-		private void OnDestroy()
-		{
-			LobbyNetworkManager.OnServerReadied -= SpawnPlayer;
-		}
+		private List<PlayerNetworkEntity> _activePlayers = new List<PlayerNetworkEntity>();
 
 		public static void AddSpawnPoint(Transform spawnPoint)
 		{
@@ -35,19 +28,18 @@ namespace Game.Network
 		}
 
 		[Server]
-		private void SpawnPlayer(NetworkConnection connection)
+		public void ResetPoints()
 		{
-			Transform spawnPoint = _spawnPoints[Random.Range(0, _spawnPoints.Count)];
-
-			PlayerNetworkEntity player = Instantiate(_playerPrefab, spawnPoint.position, Quaternion.identity);
-			player.SetDisplayName(connection.identity.gameObject.GetComponent<PlayerGameEntity>().DisplayName);
-			NetworkServer.Spawn(player.gameObject, connection);
+			_pointsAvailableToSpawn.Clear();
+			_pointsAvailableToSpawn.AddRange(_spawnPoints);
 		}
 
 		[Server]
-		public void RespawnAndResetAllPlayers()
+		public Vector3 GetPlayerPosition()
 		{
-			Debug.Log("Cock cock");
+			Transform randomPoint = _pointsAvailableToSpawn[Random.Range(0, _pointsAvailableToSpawn.Count)];
+			_pointsAvailableToSpawn.Remove(randomPoint);
+			return randomPoint.position;
 		}
 	}
 }

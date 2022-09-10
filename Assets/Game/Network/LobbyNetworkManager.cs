@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using Game.Model;
+using Game.Network.Messages;
 using Game.Utils;
 using Game.View.UI;
 using Mirror;
@@ -23,52 +25,46 @@ namespace Game.Network
 		[SerializeField]
 		private PlayerRoomView _playerRoomPrefab;
 		[SerializeField]
-		private PlayerGameEntity _gamePlayerPrefab;
+		private PlayerNetworkEntity _gamePlayerPrefab;
 		[SerializeField]
-		private PlayerSpawner _playerSpawner;
+		private PlayerSpawner _playerSpawnerPrefab;
 		[SerializeField]
 		private UpdateTimer _updateTimerPrefab;
 
 		public List<PlayerRoomView> RoomPlayers { get; } = new List<PlayerRoomView>();
-		public List<PlayerGameEntity> GamePlayers { get; } = new List<PlayerGameEntity>();
+		public List<PlayerNetworkEntity> GamePlayers { get; } = new List<PlayerNetworkEntity>();
 
-		public static Action<NetworkConnection> OnServerReadied;
+		private PlayerSpawner _playerSpawner;
 
-		private float _winStateTimer;
-
-		public override void Start()
+		private void IncreasePoints(PlayerNetworkEntity attacker)
 		{
-			base.Start();
-			NetworkServer.RegisterHandler<IncreasePointMessage>(OnPointIncreased);
-		}
-
-		private void OnPointIncreased(NetworkConnectionToClient connection, IncreasePointMessage points)
-		{
-			PlayerGameEntity playerGameEntity = connection.identity.GetComponent<PlayerGameEntity>();
-			playerGameEntity.Points++;
-			if (playerGameEntity.Points >= _pointsNeededToWin)
+			attacker.Points++;
+			if (attacker.Points >= _pointsNeededToWin)
 			{
-				WinGame(connection);
+				WinGame(attacker);
 			}
 		}
 
-		private void WinGame(NetworkConnectionToClient winnerConnection)
+		private void WinGame(PlayerNetworkEntity winner)
 		{
-			PlayerGameEntity playerGameEntity = winnerConnection.identity.GetComponent<PlayerGameEntity>();
 			UpdateTimer updateTimer = Instantiate(_updateTimerPrefab);
+			GamePlayers.ForEach(gamePlayer => gamePlayer.CanMove = false);
 			updateTimer.Init(() =>
 			{
-				ResetAllPoints();
-				_playerSpawner.RespawnAndResetAllPlayers();
+				ResetAllPlayers();
+				_playerSpawner.ResetPoints();
+				NetworkServer.SendToAll(new GameRestartMessage());
 			}, _winStateDuration);
-			NetworkServer.SendToAll(new GameWinMessage() {WinnerName = playerGameEntity.DisplayName});
+			NetworkServer.SendToAll(new GameWinMessage() {WinnerName = winner.DisplayName});
 		}
 
-		private void ResetAllPoints()
+		private void ResetAllPlayers()
 		{
-			foreach (PlayerGameEntity playerGameEntity in GamePlayers)
+			foreach (PlayerNetworkEntity playerGameEntity in GamePlayers)
 			{
 				playerGameEntity.Points = 0;
+				playerGameEntity.transform.position = _playerSpawner.GetPlayerPosition();
+				playerGameEntity.CanMove = true;
 			}
 		}
 
@@ -103,6 +99,7 @@ namespace Game.Network
 		{
 			base.OnStopServer();
 			RoomPlayers.Clear();
+			GamePlayers.Clear();
 		}
 
 		private bool IsMenuScene => SceneManager.GetActiveScene().path == _menuSceneName;
@@ -169,11 +166,19 @@ namespace Game.Network
 				{
 					PlayerRoomView playerRoomView = RoomPlayers[i];
 					NetworkConnectionToClient connectionToClient = playerRoomView.connectionToClient;
-					PlayerGameEntity gamePlayerInstance = Instantiate(_gamePlayerPrefab);
+					PlayerNetworkEntity gamePlayerInstance = Instantiate(_gamePlayerPrefab);
 					gamePlayerInstance.SetDisplayName(playerRoomView.DisplayName);
+					gamePlayerInstance.gameObject.SetActive(false);
+					gamePlayerInstance.CanMove = false;
+					gamePlayerInstance.OnRushCollision += player =>
+					{
+						player.Hit();
+						IncreasePoints(gamePlayerInstance);
+					};
 
 					NetworkServer.Destroy(connectionToClient.identity.gameObject);
 
+					GamePlayers.Add(gamePlayerInstance);
 					NetworkServer.ReplacePlayerForConnection(connectionToClient, gamePlayerInstance.gameObject);
 				}
 			}
@@ -185,20 +190,18 @@ namespace Game.Network
 		{
 			if (IsGameScene)
 			{
-				GameObject playerSpawner = Instantiate(_playerSpawner.gameObject);
-				NetworkServer.Spawn(playerSpawner);
+				_playerSpawner = Instantiate(_playerSpawnerPrefab);
+
+				_playerSpawner.ResetPoints();
 
 				Cursor.lockState = CursorLockMode.Confined;
-			}
-		}
 
-		public override void OnServerReady(NetworkConnectionToClient conn)
-		{
-			base.OnServerReady(conn);
-
-			if (IsGameScene)
-			{
-				OnServerReadied?.Invoke(conn);
+				foreach (PlayerNetworkEntity playerNetworkEntity in GamePlayers)
+				{
+					playerNetworkEntity.gameObject.SetActive(true);
+					playerNetworkEntity.CanMove = true;
+					playerNetworkEntity.transform.position = _playerSpawner.GetPlayerPosition();
+				}
 			}
 		}
 	}

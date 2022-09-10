@@ -1,4 +1,5 @@
-﻿using Mirror;
+﻿using Game.Network.Messages;
+using Mirror;
 using TMPro;
 using UnityEngine;
 
@@ -14,6 +15,12 @@ namespace Game.Network
 		private void Start()
 		{
 			NetworkClient.RegisterHandler<GameWinMessage>(OnGameWin);
+			NetworkClient.RegisterHandler<GameRestartMessage>(OnGameRestarted);
+		}
+
+		private void OnGameRestarted(GameRestartMessage gameRestartMessage)
+		{
+			_winnerCanvas.gameObject.SetActive(false);
 		}
 
 		private void OnGameWin(GameWinMessage gameWinMessage)

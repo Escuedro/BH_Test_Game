@@ -1,6 +1,6 @@
 ﻿using Mirror;
 
-namespace Game.Network
+namespace Game.Network.Messages
 {
 	public struct IncreasePointMessage : NetworkMessage
 	{
